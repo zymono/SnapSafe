@@ -15,6 +15,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from 'expo-router';
 import { auth } from '../../utils/firebase';
 import { Ionicons } from '@expo/vector-icons';
+import { colors, typography, components, spacing } from '../../styles/theme';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -60,7 +61,7 @@ export default function Login() {
         <TextInput
           style={styles.input}
           placeholder="Email"
-          placeholderTextColor="#999"
+          placeholderTextColor={colors.textTertiary}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -69,18 +70,18 @@ export default function Login() {
         {errors.email && <Text style={styles.error}>{errors.email}</Text>}
 
         <View style={styles.passwordContainer}>
-          <Ionicons name="lock-closed" size={20} color="#666" style={styles.passwordIcon} />
+          <Ionicons name="lock-closed" size={20} color={colors.textSecondary} style={styles.passwordIcon} />
           <TextInput
             style={styles.passwordInput}
             placeholder="Password"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.textTertiary}
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
             autoCapitalize="none"
           />
           <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-            <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color="#666" />
+            <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
         {errors.password && <Text style={styles.error}>{errors.password}</Text>}
@@ -90,7 +91,7 @@ export default function Login() {
           onPress={handleLogin}
           disabled={loading}
         >
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Login</Text>}
+          {loading ? <ActivityIndicator color={colors.textOnPrimary} /> : <Text style={styles.buttonText}>Login</Text>}
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -99,61 +100,50 @@ export default function Login() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 24,
+    ...components.container,
     flexGrow: 1,
     justifyContent: 'center',
+    paddingHorizontal: spacing.xxl,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 24,
-    alignSelf: 'center',
-    color: '#222',
+    ...typography.h2,
+    marginBottom: spacing.xxl,
+    textAlign: 'center',
   },
   input: {
-    height: 50,
-    borderColor: '#ddd',
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    marginBottom: 8,
-    backgroundColor: '#fff',
-    fontSize: 16,
+    ...components.input,
+    marginBottom: spacing.sm,
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    backgroundColor: '#fff',
+    borderColor: colors.gray300,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.surface,
     height: 50,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   passwordInput: {
     flex: 1,
     fontSize: 16,
     paddingVertical: 0,
+    color: colors.textPrimary,
   },
   passwordIcon: {
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   button: {
-    backgroundColor: '#007BFF',
-    paddingVertical: 14,
-    borderRadius: 10,
-    marginTop: 16,
-    alignItems: 'center',
+    ...components.buttonPrimary,
+    marginTop: spacing.lg,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '600',
+    ...typography.button,
   },
   error: {
-    color: '#D9534F',
+    color: colors.error,
     fontSize: 14,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
 });

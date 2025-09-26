@@ -18,6 +18,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import { auth, db } from '../../utils/firebase';
+import { colors, typography, components, spacing, borderRadius } from '../../styles/theme';
 
 const US_STATES = [
   { label: 'Select State', value: '' },
@@ -155,7 +156,7 @@ export default function Register() {
             <TextInput
               style={styles.input}
               placeholder="Email"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.textTertiary}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -164,18 +165,18 @@ export default function Register() {
             {errors.email && <Text style={styles.error}>{errors.email}</Text>}
 
             <View style={styles.passwordContainer}>
-              <Ionicons name="lock-closed" size={20} color="#666" style={styles.passwordIcon} />
+              <Ionicons name="lock-closed" size={20} color={colors.textSecondary} style={styles.passwordIcon} />
               <TextInput
                 style={styles.passwordInput}
                 placeholder="Password"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.textTertiary}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color="#666" />
+                <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
             {errors.password && <Text style={styles.error}>{errors.password}</Text>}
@@ -186,7 +187,7 @@ export default function Register() {
                 <Text
                   key={req.label}
                   style={{
-                    color: req.regex.test(password) ? 'green' : '#999',
+                    color: req.regex.test(password) ? colors.success : colors.textTertiary,
                     fontSize: 14,
                   }}
                 >
@@ -204,7 +205,7 @@ export default function Register() {
             <TextInput
               style={styles.input}
               placeholder="Full Name"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.textTertiary}
               value={fullName}
               onChangeText={setFullName}
             />
@@ -212,7 +213,7 @@ export default function Register() {
 
             <TouchableOpacity style={styles.datePickerButton} onPress={() => setShowDatePicker(true)}>
               <Text style={styles.datePickerText}>{dob.toDateString()}</Text>
-              <Ionicons name="calendar" size={22} color="#666" />
+              <Ionicons name="calendar" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
             {errors.dob && <Text style={styles.error}>{errors.dob}</Text>}
 
@@ -232,7 +233,7 @@ export default function Register() {
             <TextInput
               style={styles.input}
               placeholder="ZIP Code"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.textTertiary}
               value={zip}
               onChangeText={setZip}
               keyboardType="numeric"
@@ -254,7 +255,7 @@ export default function Register() {
               onPress={handleRegister}
               disabled={loading}
             >
-              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Create Account</Text>}
+              {loading ? <ActivityIndicator color={colors.textOnPrimary} /> : <Text style={styles.buttonText}>Create Account</Text>}
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => setStep(1)}>
@@ -269,98 +270,87 @@ export default function Register() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 24,
+    ...components.container,
     flexGrow: 1,
     justifyContent: 'center',
+    paddingHorizontal: spacing.xxl,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 24,
-    alignSelf: 'center',
-    color: '#222',
+    ...typography.h2,
+    marginBottom: spacing.xxl,
+    textAlign: 'center',
   },
   input: {
-    height: 50,
-    borderColor: '#ddd',
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    marginBottom: 8,
-    backgroundColor: '#fff',
-    fontSize: 16,
+    ...components.input,
+    marginBottom: spacing.sm,
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    backgroundColor: '#fff',
+    borderColor: colors.gray300,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.surface,
     height: 50,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   passwordInput: {
     flex: 1,
     fontSize: 16,
     paddingVertical: 0,
+    color: colors.textPrimary,
   },
   passwordIcon: {
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   requirements: {
-    marginTop: 6,
-    marginBottom: 16,
+    marginTop: spacing.xs,
+    marginBottom: spacing.lg,
   },
   datePickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    backgroundColor: '#fff',
-    marginBottom: 8,
+    borderColor: colors.gray300,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.surface,
+    marginBottom: spacing.sm,
   },
   datePickerText: {
     fontSize: 16,
-    color: '#333',
+    color: colors.textPrimary,
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    marginBottom: 8,
-    backgroundColor: '#fff',
+    borderColor: colors.gray300,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.surface,
   },
   picker: {
     height: 50,
     width: '100%',
   },
   button: {
-    backgroundColor: '#007BFF',
-    paddingVertical: 14,
-    borderRadius: 10,
-    marginTop: 16,
-    alignItems: 'center',
+    ...components.buttonPrimary,
+    marginTop: spacing.lg,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '600',
+    ...typography.button,
   },
   error: {
-    color: '#D9534F',
+    color: colors.error,
     fontSize: 14,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   linkText: {
-    marginTop: 16,
+    marginTop: spacing.lg,
     textAlign: 'center',
-    color: '#007BFF',
+    color: colors.primary,
     fontWeight: '500',
   },
 });
