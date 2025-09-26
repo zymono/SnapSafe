@@ -24,6 +24,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { colors, typography, components, spacing, borderRadius } from '../../styles/theme';
 
 const US_STATES = [
   { label: 'Select State', value: '' },
@@ -181,7 +182,11 @@ export default function Settings() {
     });
   };
 
-  if (loading) return <Text style={{ textAlign: 'center', marginTop: 50 }}>Loading...</Text>;
+  if (loading) return (
+    <View style={styles.center}>
+      <Text style={styles.loadingText}>Loading...</Text>
+    </View>
+  );
 
   return (
     <KeyboardAvoidingView
@@ -262,12 +267,12 @@ export default function Settings() {
           <Text style={styles.updateButtonText}>Save Settings</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.updateButton, { opacity: 0.9 }]} onPress={handleSignOut}>
-          <Text style={styles.updateButtonText}>Sign Out</Text>
+        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+          <Text style={styles.signOutButtonText}>Sign Out</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.updateButton, { opacity: 0.8 }]} onPress={handleDeleteAccount}>
-          <Text style={styles.updateButtonText}>Delete Account</Text>
+        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
+          <Text style={styles.deleteButtonText}>Delete Account</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -275,58 +280,95 @@ export default function Settings() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20 },
-  title: { fontSize: 24, marginBottom: 20, alignSelf: 'center', fontWeight: '600' },
+  container: {
+    ...components.container,
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 50,
+  },
+  title: {
+    ...typography.h3,
+    marginBottom: spacing.xl,
+    textAlign: 'center',
+  },
   input: {
-    height: 50,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    marginBottom: 12,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    backgroundColor: '#fff',
-    fontSize: 16,
+    ...components.input,
+    marginBottom: spacing.md,
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    backgroundColor: '#fff',
+    borderColor: colors.gray300,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.surface,
     height: 50,
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
-  passwordIcon: { marginRight: 8 },
-  passwordInput: { flex: 1, fontSize: 16, paddingVertical: 0 },
+  passwordIcon: { marginRight: spacing.sm },
+  passwordInput: { 
+    flex: 1, 
+    fontSize: 16, 
+    paddingVertical: 0,
+    color: colors.textPrimary,
+  },
   datePickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    backgroundColor: '#fff',
-    marginBottom: 12,
+    borderColor: colors.gray300,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.surface,
+    marginBottom: spacing.md,
   },
-  datePickerText: { fontSize: 16, color: '#333' },
+  datePickerText: { 
+    fontSize: 16, 
+    color: colors.textPrimary,
+  },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 10,
-    marginBottom: 12,
-    backgroundColor: '#fff',
+    borderColor: colors.gray300,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
     overflow: 'hidden',
   },
   picker: { height: 50, width: '100%' },
   updateButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 14,
-    borderRadius: 10,
-    marginBottom: 12,
+    ...components.buttonPrimary,
+    marginBottom: spacing.md,
   },
-  updateButtonText: { color: '#fff', textAlign: 'center', fontSize: 16, fontWeight: '600' },
+  signOutButton: {
+    ...components.buttonSecondary,
+    marginBottom: spacing.md,
+  },
+  deleteButton: {
+    ...components.buttonDanger,
+    marginBottom: spacing.md,
+  },
+  updateButtonText: {
+    ...typography.button,
+    textAlign: 'center',
+  },
+  signOutButtonText: {
+    ...typography.button,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  deleteButtonText: {
+    ...typography.button,
+    textAlign: 'center',
+  },
+  loadingText: {
+    ...typography.body1,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
 });

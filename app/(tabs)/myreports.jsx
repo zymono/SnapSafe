@@ -9,6 +9,7 @@ import {
 import { auth, db } from '../../utils/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import axios from 'axios';
+import { colors, typography, components, spacing } from '../../styles/theme';
 
 export default function Myreports() {
   const [reports, setReports] = useState([]);
@@ -67,8 +68,8 @@ export default function Myreports() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text>Loading reports...</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Loading reports...</Text>
       </View>
     );
   }
@@ -76,7 +77,7 @@ export default function Myreports() {
   if (reports.length === 0) {
     return (
       <View style={styles.center}>
-        <Text>No reports found.</Text>
+        <Text style={styles.emptyText}>No reports found.</Text>
       </View>
     );
   }
@@ -94,8 +95,15 @@ export default function Myreports() {
           ]}
         >
           <Text style={styles.cardTitle}>Report ID: {r.reportId}</Text>
-          <Text><b>Reason: {r.data?.reason || "Report data not available as this report has been completed"}</b></Text>
-          <Text>Status: {r.status === 'Pending' ? 'Pending' : 'Reviewed'}</Text>
+          <Text style={styles.cardText}>
+            <Text style={{fontWeight: '600'}}>Reason: </Text>
+            {r.data?.reason || "Report data not available as this report has been completed"}
+          </Text>
+          <Text style={[styles.statusText, { 
+            color: r.status === 'Pending' ? colors.warning : colors.success 
+          }]}>
+            Status: {r.status === 'Pending' ? 'Pending' : 'Reviewed'}
+          </Text>
         </View>
       ))}
     </ScrollView>
@@ -103,7 +111,9 @@ export default function Myreports() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20 },
+  container: {
+    ...components.container,
+  },
   center: {
     flex: 1,
     justifyContent: 'center',
@@ -111,25 +121,47 @@ const styles = StyleSheet.create({
     marginTop: 50,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '600',
-    marginBottom: 20,
-    alignSelf: 'center',
+    ...typography.h3,
+    marginBottom: spacing.xl,
+    textAlign: 'center',
   },
   card: {
-    padding: 16,
-    borderRadius: 10,
-    marginBottom: 12,
+    ...components.card,
+    marginBottom: spacing.md,
+    borderWidth: 1,
   },
   pendingCard: {
-    backgroundColor: '#FFD580', // soft orange/yellow
+    backgroundColor: '#fff8e1',
+    borderColor: colors.warning,
   },
   reviewedCard: {
-    backgroundColor: '#C8E6C9', // soft green
+    backgroundColor: '#f3f8f3',
+    borderColor: colors.success,
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: '500',
-    marginBottom: 6,
+    ...typography.h5,
+    marginBottom: spacing.sm,
+    color: colors.textPrimary,
+  },
+  cardText: {
+    ...typography.body1,
+    marginBottom: spacing.xs,
+    color: colors.textSecondary,
+  },
+  statusText: {
+    ...typography.body2,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  loadingText: {
+    ...typography.body1,
+    color: colors.textSecondary,
+    marginTop: spacing.md,
+  },
+  emptyText: {
+    ...typography.body1,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
 });

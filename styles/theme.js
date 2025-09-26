@@ -124,7 +124,9 @@ export const typography = {
 
 export const shadows = {
   small: Platform.select({
-    web: '0px 2px 4px rgba(0, 0, 0, 0.06)',
+    web: {
+      boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.06)',
+    },
     default: {
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
@@ -134,7 +136,9 @@ export const shadows = {
     },
   }),
   medium: Platform.select({
-    web: '0px 4px 6px rgba(0, 0, 0, 0.08)',
+    web: {
+      boxShadow: '0px 4px 6px rgba(0, 0, 0, 0.08)',
+    },
     default: {
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
@@ -144,7 +148,9 @@ export const shadows = {
     },
   }),
   large: Platform.select({
-    web: '0px 6px 10px rgba(0, 0, 0, 0.1)',
+    web: {
+      boxShadow: '0px 6px 10px rgba(0, 0, 0, 0.1)',
+    },
     default: {
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 6 },

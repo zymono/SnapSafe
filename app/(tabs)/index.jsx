@@ -14,6 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Picker } from "@react-native-picker/picker"; // <-- Dropdown picker
 import { auth, db } from "../../utils/firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { colors, typography, components, spacing, borderRadius } from "../../styles/theme";
 
 export default function Home() {
   const [reason, setReason] = useState("");
@@ -200,13 +201,13 @@ export default function Home() {
           onChangeText={setReason}
           placeholder="Describe the issue in detail..."
           multiline
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={colors.textTertiary}
         />
 
         {/* Submit Button */}
         <TouchableOpacity onPress={handleSubmit} style={styles.buttonWrapper}>
           <LinearGradient
-            colors={["#2563eb", "#1d4ed8"]}
+            colors={[colors.primary, colors.primaryDark]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.submitButton}
@@ -220,16 +221,72 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, padding: 20, backgroundColor: "#f3f4f6" },
-  header: { fontSize: 26, fontWeight: "bold", marginBottom: 20, textAlign: "center", color: "#111827" },
-  card: { backgroundColor: "#fff", borderRadius: 16, padding: 20, boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.08)", elevation: 4 },
-  label: { fontSize: 16, fontWeight: "500", marginBottom: 8, color: "#111827" },
-  picker: { marginBottom: 20, backgroundColor: "#f9fafb", borderRadius: 12 },
-  imagePicker: { height: 200, borderWidth: 2, borderColor: "#d1d5db", borderStyle: "dashed", borderRadius: 12, justifyContent: "center", alignItems: "center", marginBottom: 20, backgroundColor: "#f9fafb" },
-  imagePickerText: { color: "#6b7280", fontSize: 16 },
-  imagePreview: { width: "100%", height: "100%", borderRadius: 12, resizeMode: "cover" },
-  reasonBox: { minHeight: 140, borderWidth: 1, borderColor: "#d1d5db", borderRadius: 12, padding: 14, fontSize: 16, backgroundColor: "#f9fafb", textAlignVertical: "top", marginBottom: 20, color: "#111827" },
-  buttonWrapper: { borderRadius: 12, overflow: "hidden" },
-  submitButton: { paddingVertical: 16, alignItems: "center" },
-  submitButtonText: { color: "#fff", fontSize: 18, fontWeight: "600" },
+  container: {
+    ...components.container,
+    flexGrow: 1,
+  },
+  header: {
+    ...typography.h2,
+    marginBottom: spacing.xl,
+    textAlign: "center",
+  },
+  card: {
+    ...components.card,
+  },
+  label: {
+    ...typography.h6,
+    marginBottom: spacing.sm,
+  },
+  picker: {
+    marginBottom: spacing.xl,
+    backgroundColor: colors.backgroundLight,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.gray300,
+  },
+  imagePicker: {
+    height: 200,
+    borderWidth: 2,
+    borderColor: colors.gray300,
+    borderStyle: "dashed",
+    borderRadius: borderRadius.md,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: spacing.xl,
+    backgroundColor: colors.backgroundLight,
+  },
+  imagePickerText: {
+    color: colors.textSecondary,
+    fontSize: 16,
+  },
+  imagePreview: {
+    width: "100%",
+    height: "100%",
+    borderRadius: borderRadius.md,
+    resizeMode: "cover",
+  },
+  reasonBox: {
+    minHeight: 140,
+    borderWidth: 1,
+    borderColor: colors.gray300,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    fontSize: 16,
+    backgroundColor: colors.backgroundLight,
+    textAlignVertical: "top",
+    marginBottom: spacing.xl,
+    color: colors.textPrimary,
+  },
+  buttonWrapper: {
+    borderRadius: borderRadius.md,
+    overflow: "hidden",
+  },
+  submitButton: {
+    paddingVertical: spacing.lg,
+    alignItems: "center",
+  },
+  submitButtonText: {
+    ...typography.button,
+    fontSize: 18,
+  },
 });

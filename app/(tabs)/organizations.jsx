@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { auth, db } from '../../utils/firebase';
 import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { BarCodeScanner } from 'expo-barcode-scanner';
+import { colors, typography, components, spacing, borderRadius } from '../../styles/theme';
 
 export default function Organizations() {
   const [modalVisible, setModalVisible] = useState(false);
@@ -106,12 +107,16 @@ export default function Organizations() {
         <Text style={styles.orgId}>ID: {item.id}</Text>
       </View>
       <TouchableOpacity onPress={() => removeOrganization(item.id)}>
-        <Ionicons name="trash-outline" size={22} color="#f44336" />
+        <Ionicons name="trash-outline" size={22} color={colors.error} />
       </TouchableOpacity>
     </View>
   );
 
-  if (loading) return <View style={styles.container}><Text>Loading...</Text></View>;
+  if (loading) return (
+    <View style={styles.loadingContainer}>
+      <Text style={styles.loadingText}>Loading...</Text>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
@@ -250,92 +255,91 @@ export default function Organizations() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f6fa', paddingTop: 50 },
-  header: { fontSize: 28, fontWeight: '700', color: '#1e1e1e', marginLeft: 20, marginBottom: 20 },
-  orgCard: {
-    backgroundColor: '#fff',
-    marginHorizontal: 20,
-    marginBottom: 12,
-    padding: 20,
-    borderRadius: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.06)',
-    elevation: 4,
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+    paddingTop: 50,
   },
-  orgTitle: { fontSize: 18, fontWeight: '600', color: '#222' },
-  orgId: { fontSize: 12, color: '#888', marginTop: 4 },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    ...typography.body1,
+    color: colors.textSecondary,
+  },
+  header: {
+    ...typography.h2,
+    marginLeft: spacing.xl,
+    marginBottom: spacing.xl,
+  },
+  orgCard: {
+    ...components.listItem,
+  },
+  orgTitle: {
+    ...typography.h5,
+  },
+  orgId: {
+    ...typography.caption,
+    marginTop: spacing.xs,
+  },
   fab: {
-    position: 'absolute',
-    bottom: 30,
-    right: 30,
+    ...components.fab,
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: '#1a73e8',
-    justifyContent: 'center',
-    alignItems: 'center',
-    boxShadow: '0px 6px 10px rgba(26, 115, 232, 0.3)',
-    elevation: 6,
   },
   modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    ...components.modalOverlay,
   },
   modalContent: {
-    width: '100%',
-    backgroundColor: '#fff',
-    paddingVertical: 30,
-    paddingHorizontal: 25,
-    borderRadius: 24,
-    alignItems: 'center',
+    ...components.modalContent,
   },
-  modalHeader: { fontSize: 22, fontWeight: '700', marginBottom: 25, color: '#111' },
+  modalHeader: {
+    ...typography.h4,
+    marginBottom: spacing.xxl,
+  },
   optionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    marginBottom: 15,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
     width: '100%',
     justifyContent: 'center',
   },
-  qrButton: { backgroundColor: '#34a853' },
-  codeButton: { backgroundColor: '#fbbc05' },
-  optionText: { color: '#fff', fontSize: 16, fontWeight: '600', marginLeft: 10 },
-  cancelButton: {
-    marginTop: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    backgroundColor: '#e0e0e0',
-    width: '100%',
-    alignItems: 'center',
+  qrButton: {
+    backgroundColor: colors.success,
   },
-  cancelText: { color: '#333', fontSize: 16, fontWeight: '600' },
+  codeButton: {
+    backgroundColor: colors.warning,
+  },
+  optionText: {
+    ...typography.button,
+    marginLeft: spacing.sm,
+  },
+  cancelButton: {
+    ...components.buttonSecondary,
+    marginTop: spacing.sm,
+  },
+  cancelText: {
+    ...typography.button,
+    color: colors.textPrimary,
+  },
   input: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 20,
+    ...components.input,
+    marginBottom: spacing.xl,
   },
   confirmButton: {
-    backgroundColor: '#1a73e8',
-    paddingVertical: 12,
-    borderRadius: 12,
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 10,
+    ...components.buttonPrimary,
+    marginBottom: spacing.sm,
   },
-  confirmText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  confirmText: {
+    ...typography.button,
+  },
   qrOverlay: {
     flex: 1,
     justifyContent: 'center',
@@ -343,15 +347,15 @@ const styles = StyleSheet.create({
   },
   qrSquare: {
     borderWidth: 3,
-    borderColor: '#fff',
-    borderRadius: 12,
+    borderColor: colors.white,
+    borderRadius: borderRadius.md,
   },
   qrCloseButton: {
     position: 'absolute',
     top: 50,
-    left: 20,
+    left: spacing.xl,
     backgroundColor: 'rgba(0,0,0,0.4)',
-    padding: 10,
+    padding: spacing.sm,
     borderRadius: 30,
   },
 });
