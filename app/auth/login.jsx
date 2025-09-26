@@ -15,7 +15,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from 'expo-router';
 import { auth } from '../../utils/firebase';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, components, spacing } from '../../styles/theme';
+import { colors, typography, components, spacing, borderRadius } from '../../styles/theme';
 
 export default function Login() {
   const [email, setEmail] = useState('');
