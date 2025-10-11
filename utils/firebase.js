@@ -1,8 +1,12 @@
-// Import the functions you need from the SDKs you need
+// firebase.js
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from 'firebase/firestore';
-// https://firebase.google.com/docs/web/setup#available-libraries
+import {
+  getAuth,
+  initializeAuth,
+  getReactNativePersistence,
+} from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -11,12 +15,17 @@ const firebaseConfig = {
   projectId: "snapsafe-f3e5f",
   storageBucket: "snapsafe-f3e5f.firebasestorage.app",
   messagingSenderId: "211492511876",
-  appId: "1:211492511876:web:a69454ae852943c68f62d1"
+  appId: "1:211492511876:web:a69454ae852943c68f62d1",
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-const auth = getAuth(app);
+// Use initializeAuth instead of getAuth for React Native
+const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage),
+});
+
 const db = getFirestore(app);
-export { auth, db }
+
+export { auth, db };

@@ -10,8 +10,10 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   ActivityIndicator,
+  Modal,
+  useColorScheme,
 } from 'react-native';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -75,6 +77,19 @@ const US_STATES = [
 ];
 
 export default function Register() {
+  const scheme = useColorScheme();
+  const isDark = scheme === 'dark';
+  const router = useRouter();
+
+  const theme = {
+    background: isDark ? '#000' : '#fff',
+    surface: isDark ? '#1C1C1E' : colors.surface,
+    textPrimary: isDark ? '#fff' : colors.textPrimary,
+    textSecondary: isDark ? '#A1A1AA' : colors.textSecondary,
+    border: isDark ? '#3A3A3C' : colors.gray300,
+    pickerBg: isDark ? '#2C2C2E' : '#fff',
+  };
+
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -84,9 +99,9 @@ export default function Register() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [zip, setZip] = useState('');
   const [state, setState] = useState('');
+  const [showStatePicker, setShowStatePicker] = useState(false);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   const passwordRequirements = [
     { regex: /.{6,}/, label: 'At least 6 characters' },
@@ -122,9 +137,13 @@ export default function Register() {
   const handleRegister = async () => {
     if (!validateStep2()) return;
     setLoading(true);
-
     try {
       const { user } = await createUserWithEmailAndPassword(auth, email, password);
+
+      // Send verification email
+      await sendEmailVerification(user);
+
+      // Store user data in Firestore
       await setDoc(doc(db, 'users', user.uid), {
         fullName,
         dob: dob.toISOString().split('T')[0],
@@ -132,9 +151,14 @@ export default function Register() {
         state,
         email: user.email,
         createdAt: new Date(),
+        emailVerified: false,
       });
-      Alert.alert('Welcome 🎉', `Account created for ${user.email}`);
-      router.replace('/(tabs)');
+
+      Alert.alert(
+        'Verify Your Email 📩',
+        `A verification email has been sent to ${user.email}. Please verify your email before logging in.`,
+        [{ text: 'OK', onPress: () => router.replace('/auth/login') }]
+      );
     } catch (error) {
       Alert.alert('Registration Failed', error.message);
     } finally {
@@ -144,19 +168,19 @@ export default function Register() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
+      style={{ flex: 1, backgroundColor: theme.background }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
     >
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Create Account ✨</Text>
+      <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.background }]}>
+        <Text style={[styles.title, { color: theme.textPrimary }]}>Create Account ✨</Text>
 
         {step === 1 ? (
           <>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: theme.surface, color: theme.textPrimary, borderColor: theme.border }]}
               placeholder="Email"
-              placeholderTextColor={colors.textTertiary}
+              placeholderTextColor={theme.textSecondary}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -164,30 +188,29 @@ export default function Register() {
             />
             {errors.email && <Text style={styles.error}>{errors.email}</Text>}
 
-            <View style={styles.passwordContainer}>
-              <Ionicons name="lock-closed" size={20} color={colors.textSecondary} style={styles.passwordIcon} />
+            <View style={[styles.passwordContainer, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+              <Ionicons name="lock-closed" size={20} color={theme.textSecondary} style={styles.passwordIcon} />
               <TextInput
-                style={styles.passwordInput}
+                style={[styles.passwordInput, { color: theme.textPrimary }]}
                 placeholder="Password"
-                placeholderTextColor={colors.textTertiary}
+                placeholderTextColor={theme.textSecondary}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color={colors.textSecondary} />
+                <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color={theme.textSecondary} />
               </TouchableOpacity>
             </View>
             {errors.password && <Text style={styles.error}>{errors.password}</Text>}
 
-            {/* Password Requirements */}
             <View style={styles.requirements}>
               {passwordRequirements.map((req) => (
                 <Text
                   key={req.label}
                   style={{
-                    color: req.regex.test(password) ? colors.success : colors.textTertiary,
+                    color: req.regex.test(password) ? colors.success : theme.textSecondary,
                     fontSize: 14,
                   }}
                 >
@@ -203,17 +226,20 @@ export default function Register() {
         ) : (
           <>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: theme.surface, color: theme.textPrimary, borderColor: theme.border }]}
               placeholder="Full Name"
-              placeholderTextColor={colors.textTertiary}
+              placeholderTextColor={theme.textSecondary}
               value={fullName}
               onChangeText={setFullName}
             />
             {errors.fullName && <Text style={styles.error}>{errors.fullName}</Text>}
 
-            <TouchableOpacity style={styles.datePickerButton} onPress={() => setShowDatePicker(true)}>
-              <Text style={styles.datePickerText}>{dob.toDateString()}</Text>
-              <Ionicons name="calendar" size={22} color={colors.textSecondary} />
+            <TouchableOpacity
+              style={[styles.datePickerButton, { backgroundColor: theme.surface, borderColor: theme.border }]}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text style={[styles.datePickerText, { color: theme.textPrimary }]}>{dob.toDateString()}</Text>
+              <Ionicons name="calendar" size={22} color={theme.textSecondary} />
             </TouchableOpacity>
             {errors.dob && <Text style={styles.error}>{errors.dob}</Text>}
 
@@ -227,13 +253,14 @@ export default function Register() {
                   if (selectedDate) setDob(selectedDate);
                 }}
                 maximumDate={new Date()}
+                textColor={isDark ? '#fff' : '#000'}
               />
             )}
 
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: theme.surface, color: theme.textPrimary, borderColor: theme.border }]}
               placeholder="ZIP Code"
-              placeholderTextColor={colors.textTertiary}
+              placeholderTextColor={theme.textSecondary}
               value={zip}
               onChangeText={setZip}
               keyboardType="numeric"
@@ -241,13 +268,45 @@ export default function Register() {
             />
             {errors.zip && <Text style={styles.error}>{errors.zip}</Text>}
 
-            <View style={styles.pickerContainer}>
-              <Picker selectedValue={state} onValueChange={setState} style={styles.picker}>
-                {US_STATES.map((s) => (
-                  <Picker.Item key={s.value} label={s.label} value={s.value} />
-                ))}
-              </Picker>
-            </View>
+            {/* iOS modal picker */}
+            {Platform.OS === 'ios' ? (
+              <>
+                <TouchableOpacity
+                  style={[styles.datePickerButton, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                  onPress={() => setShowStatePicker(true)}
+                >
+                  <Text style={[styles.datePickerText, { color: theme.textPrimary }]}>
+                    {state ? US_STATES.find((s) => s.value === state)?.label : 'Select State'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={22} color={theme.textSecondary} />
+                </TouchableOpacity>
+
+                <Modal animationType="slide" visible={showStatePicker} transparent>
+                  <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContent, { backgroundColor: theme.pickerBg }]}>
+                      <View style={styles.modalHeader}>
+                        <TouchableOpacity onPress={() => setShowStatePicker(false)}>
+                          <Text style={{ color: colors.primary, fontWeight: '600' }}>Done</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <Picker selectedValue={state} onValueChange={setState} style={styles.picker}>
+                        {US_STATES.map((s) => (
+                          <Picker.Item key={s.value} label={s.label} value={s.value} />
+                        ))}
+                      </Picker>
+                    </View>
+                  </View>
+                </Modal>
+              </>
+            ) : (
+              <View style={[styles.pickerContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <Picker selectedValue={state} onValueChange={setState} style={styles.picker}>
+                  {US_STATES.map((s) => (
+                    <Picker.Item key={s.value} label={s.label} value={s.value} />
+                  ))}
+                </Picker>
+              </View>
+            )}
             {errors.state && <Text style={styles.error}>{errors.state}</Text>}
 
             <TouchableOpacity
@@ -259,7 +318,7 @@ export default function Register() {
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => setStep(1)}>
-              <Text style={styles.linkText}>← Back to Step 1</Text>
+              <Text style={[styles.linkText, { color: colors.primary }]}>← Back to Step 1</Text>
             </TouchableOpacity>
           </>
         )}
@@ -283,15 +342,14 @@ const styles = StyleSheet.create({
   input: {
     ...components.input,
     marginBottom: spacing.sm,
+    borderWidth: 1,
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.gray300,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
-    backgroundColor: colors.surface,
     height: 50,
     marginBottom: spacing.sm,
   },
@@ -299,49 +357,46 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     paddingVertical: 0,
-    color: colors.textPrimary,
   },
-  passwordIcon: {
-    marginRight: spacing.sm,
-  },
-  requirements: {
-    marginTop: spacing.xs,
-    marginBottom: spacing.lg,
-  },
+  passwordIcon: { marginRight: spacing.sm },
+  requirements: { marginTop: spacing.xs, marginBottom: spacing.lg },
   datePickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: colors.gray300,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-    backgroundColor: colors.surface,
     marginBottom: spacing.sm,
   },
-  datePickerText: {
-    fontSize: 16,
-    color: colors.textPrimary,
-  },
+  datePickerText: { fontSize: 16 },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: colors.gray300,
     borderRadius: borderRadius.md,
     marginBottom: spacing.sm,
-    backgroundColor: colors.surface,
   },
-  picker: {
-    height: 50,
-    width: '100%',
+  picker: { height: 200, width: '100%' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: '#00000099',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    padding: 12,
   },
   button: {
     ...components.buttonPrimary,
     marginTop: spacing.lg,
   },
-  buttonText: {
-    ...typography.button,
-  },
+  buttonText: { ...typography.button },
   error: {
     color: colors.error,
     fontSize: 14,
@@ -350,7 +405,6 @@ const styles = StyleSheet.create({
   linkText: {
     marginTop: spacing.lg,
     textAlign: 'center',
-    color: colors.primary,
     fontWeight: '500',
   },
 });

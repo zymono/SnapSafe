@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -6,25 +6,47 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
   TouchableOpacity,
-} from 'react-native';
-import { auth, db } from '../../utils/firebase';
+  useColorScheme,
+  Animated,
+  Easing,
+  Modal,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { auth, db } from "../../utils/firebase";
 import {
   signOut,
   deleteUser,
   updateEmail,
   updatePassword,
+  updateProfile,
   reauthenticateWithCredential,
   EmailAuthProvider,
-} from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { Picker } from '@react-native-picker/picker';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, components, spacing, borderRadius } from '../../styles/theme';
+  sendEmailVerification,
+} from "firebase/auth";
+import { doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { MaterialIcons } from "@expo/vector-icons";
+
+const lightColors = {
+  background: "#f2f2f7",
+  surface: "#fff",
+  textPrimary: "#111",
+  textSecondary: "#666",
+  tint: "#0A84FF",
+  destructive: "#FF3B30",
+  divider: "#e5e5ea",
+};
+
+const darkColors = {
+  background: "#000",
+  surface: "#1c1c1e",
+  textPrimary: "#fff",
+  textSecondary: "#aaa",
+  tint: "#0A84FF",
+  destructive: "#FF453A",
+  divider: "#2c2c2e",
+};
 
 const US_STATES = [
   { label: 'Select State', value: '' },
@@ -81,50 +103,103 @@ const US_STATES = [
 ];
 
 export default function Settings() {
-  const [fullName, setFullName] = useState('');
-  const [dob, setDob] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [zip, setZip] = useState('');
-  const [state, setState] = useState('');
-  const [email, setEmail] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const colorScheme = useColorScheme();
+  const colors = colorScheme === "dark" ? darkColors : lightColors;
 
-  const router = useRouter();
-  const user = auth.currentUser;
+  const [fullName, setFullName] = useState("");
+  const [dob, setDob] = useState(new Date());
+  const [showDobPicker, setShowDobPicker] = useState(false);
+  const [zip, setZip] = useState("");
+  const [state, setState] = useState("");
+  const [email, setEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [user, setUser] = useState(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  const dropdownAnim = useRef(new Animated.Value(0)).current;
+
+  const toggleDropdown = () => {
+    const toValue = showDropdown ? 0 : 1;
+    Animated.timing(dropdownAnim, {
+      toValue,
+      duration: 200,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: false,
+    }).start();
+    setShowDropdown(!showDropdown);
+  };
+
+  const dropdownHeight = dropdownAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 180],
+  });
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      if (user) {
-        setEmail(user.email);
-        const docRef = doc(db, 'users', user.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setFullName(data.fullName || '');
-          setDob(new Date(data.dob || new Date()));
-          setZip(data.zip || '');
-          setState(data.state || '');
+    const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setFullName(data.fullName || currentUser.displayName || "");
+          setDob(data.dob ? new Date(data.dob) : new Date());
+          setZip(data.zip || "");
+          setState(data.state || "");
+          setEmail(data.email || currentUser.email);
         }
       }
-      setLoading(false);
-    };
-    fetchUserData();
-  }, [user]);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleUpdate = async () => {
-    if (!fullName || !zip || !state || dob >= new Date()) {
-      Alert.alert('Validation Error', 'Please fill out all fields correctly');
-      return;
-    }
-
+    if (!user) return;
     try {
+      const needsReauth = email !== user.email || newPassword.trim();
+      if (needsReauth && !currentPassword) {
+        setShowPasswordModal(true);
+        return;
+      }
+      if (needsReauth && currentPassword) {
+        const credential = EmailAuthProvider.credential(user.email, currentPassword);
+        await reauthenticateWithCredential(user, credential);
+      }
+
+      const isPasswordProvider = user.providerData.some(
+        (p) => p.providerId === "password"
+      );
+
+      if (email !== user.email && isPasswordProvider) {
+        await updateEmail(user, email);
+        await sendEmailVerification(user);
+        Alert.alert(
+          "Verify your email",
+          "A verification link has been sent to your new email. Please verify before continuing."
+        );
+      } else if (email !== user.email && !isPasswordProvider) {
+        Alert.alert(
+          "Email change restricted",
+          "This account was created using a provider (Google, Apple, etc). Please change your email through your provider account."
+        );
+      }
+
+      if (newPassword.trim()) {
+        await updatePassword(user, newPassword);
+        setNewPassword("");
+        Alert.alert("Password updated", "Your password has been successfully changed.");
+      }
+
+      if (fullName !== user.displayName) {
+        await updateProfile(user, { displayName: fullName });
+      }
+
       await setDoc(
-        doc(db, 'users', user.uid),
+        doc(db, "users", user.uid),
         {
           fullName,
-          dob: dob.toISOString().split('T')[0],
+          dob: dob.toISOString().split("T")[0],
           zip,
           state,
           email,
@@ -133,242 +208,267 @@ export default function Settings() {
         { merge: true }
       );
 
-      if (email !== user.email) {
-        Alert.prompt('Re-authentication', 'Enter your current password:', async (passwordPrompt) => {
-          if (!passwordPrompt) return;
-          const credential = EmailAuthProvider.credential(user.email, passwordPrompt);
-          await reauthenticateWithCredential(user, credential);
-          await updateEmail(user, email);
-        });
+      setCurrentPassword("");
+      setShowPasswordModal(false);
+      Alert.alert("✅ Success", "Your settings have been updated.");
+    } catch (err) {
+      console.error("Update failed:", err);
+      if (err.code === "auth/requires-recent-login") {
+        Alert.alert(
+          "Reauthentication Required",
+          "Please log in again to update sensitive account information."
+        );
+      } else {
+        Alert.alert("Update Failed", err.message);
       }
-
-      if (newPassword) {
-        Alert.prompt('Re-authentication', 'Enter your current password:', async (passwordPrompt) => {
-          if (!passwordPrompt) return;
-          const credential = EmailAuthProvider.credential(user.email, passwordPrompt);
-          await reauthenticateWithCredential(user, credential);
-          await updatePassword(user, newPassword);
-        });
-      }
-
-      Alert.alert('Success', 'Settings updated successfully');
-      setNewPassword('');
-    } catch (error) {
-      Alert.alert('Update Failed', error.message);
     }
   };
 
   const handleSignOut = async () => {
     try {
       await signOut(auth);
-      router.replace('/');
-    } catch (error) {
-      Alert.alert('Error', error.message);
+    } catch (err) {
+      Alert.alert("Sign Out Failed", err.message);
     }
   };
 
+  // 🔥 Updated to also delete the Firestore document
   const handleDeleteAccount = async () => {
-    Alert.prompt('Confirm', 'Enter your password to delete account:', async (passwordPrompt) => {
-      if (!passwordPrompt) return;
-      try {
-        const credential = EmailAuthProvider.credential(user.email, passwordPrompt);
-        await reauthenticateWithCredential(user, credential);
-        await setDoc(doc(db, 'users', user.uid), {}, { merge: true });
-        await deleteUser(user);
-        router.replace('/');
-      } catch (error) {
-        Alert.alert('Delete Failed', error.message);
-      }
-    });
+    Alert.alert("Delete Account", "Are you sure? This cannot be undone.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            if (!user) return;
+
+            // Delete user document from Firestore first
+            await deleteDoc(doc(db, "users", user.uid));
+
+            // Then delete the user authentication account
+            await deleteUser(user);
+
+            Alert.alert("Account Deleted", "Your account has been permanently removed.");
+          } catch (err) {
+            if (err.code === "auth/requires-recent-login") {
+              Alert.alert(
+                "Reauthentication Required",
+                "Please log in again before deleting your account."
+              );
+            } else {
+              Alert.alert("Delete Failed", err.message);
+            }
+          }
+        },
+      },
+    ]);
   };
 
-  if (loading) return (
-    <View style={styles.center}>
-      <Text style={styles.loadingText}>Loading...</Text>
+  const Row = ({ label, children }) => (
+    <View style={styles.row}>
+      <Text style={[styles.label, { color: colors.textPrimary }]}>{label}</Text>
+      <View style={{ flex: 1, alignItems: "flex-end" }}>{children}</View>
     </View>
   );
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
-    >
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Settings</Text>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentInsetAdjustmentBehavior="automatic"
+      >
+        {/* Header */}
+        <Text style={[styles.Header, { color: colors.textPrimary }]}>Settings</Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Full Name"
-          value={fullName}
-          onChangeText={setFullName}
-        />
-
-        <TouchableOpacity style={styles.datePickerButton} onPress={() => setShowDatePicker(true)}>
-          <Text style={styles.datePickerText}>{dob.toDateString()}</Text>
-          <Ionicons name="calendar" size={22} color="#666" />
-        </TouchableOpacity>
-
-        {showDatePicker && (
-          <DateTimePicker
-            value={dob}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(event, selectedDate) => {
-              if (Platform.OS === 'android') setShowDatePicker(false);
-              if (selectedDate) setDob(selectedDate);
-            }}
-            maximumDate={new Date()}
-          />
-        )}
-
-        <TextInput
-          style={styles.input}
-          placeholder="ZIP Code"
-          value={zip}
-          onChangeText={setZip}
-          keyboardType="numeric"
-        />
-
-        <View style={styles.pickerContainer}>
-          <Picker selectedValue={state} onValueChange={(itemValue) => setState(itemValue)} style={styles.picker}>
-            {US_STATES.map((s) => (
-              <Picker.Item key={s.value} label={s.label} value={s.value} />
+        {/* Profile Section */}
+        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Profile</Text>
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
+          <Row label="Full Name">
+            <TextInput
+              style={[styles.input, { color: colors.textPrimary, textAlign: "right" }]}
+              value={fullName}
+              onChangeText={setFullName}
+              placeholder="Enter name"
+              placeholderTextColor={colors.textSecondary}
+            />
+          </Row>
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
+          <TouchableOpacity onPress={() => setShowDobPicker((p) => !p)}>
+            <Row label="Date of Birth">
+              <Text style={{ color: colors.textSecondary }}>{dob.toDateString()}</Text>
+            </Row>
+          </TouchableOpacity>
+          {showDobPicker && (
+            <View style={styles.datePickerWrapper}>
+              <DateTimePicker
+                value={dob}
+                mode="date"
+                display="spinner"
+                onChange={(e, d) => d && setDob(d)}
+                maximumDate={new Date()}
+              />
+              <TouchableOpacity
+                style={[styles.doneButton, { backgroundColor: colors.tint }]}
+                onPress={() => setShowDobPicker(false)}
+              >
+                <Text style={styles.doneButtonText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
+          <Row label="ZIP Code">
+            <TextInput
+              style={[styles.input, { color: colors.textPrimary, textAlign: "right" }]}
+              value={zip}
+              onChangeText={setZip}
+              keyboardType="numeric"
+              placeholder="12345"
+              placeholderTextColor={colors.textSecondary}
+            />
+          </Row>
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
+          <Row label="State">
+            <TouchableOpacity style={styles.valueContainer} onPress={toggleDropdown}>
+              <Text style={{ color: state ? colors.textPrimary : colors.textSecondary }}>
+                {state ? US_STATES.find((s) => s.value === state)?.label : "Select State"}
+              </Text>
+              <MaterialIcons
+                name={showDropdown ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+                size={20}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
+          </Row>
+          <Animated.View
+            style={[styles.dropdownList, { height: dropdownHeight, opacity: dropdownAnim }]}
+          >
+            {US_STATES.map((item) => (
+              <TouchableOpacity
+                key={item.value}
+                style={styles.dropdownItem}
+                onPress={() => {
+                  setState(item.value);
+                  toggleDropdown();
+                }}
+              >
+                <Text style={{ color: colors.textPrimary }}>{item.label}</Text>
+              </TouchableOpacity>
             ))}
-          </Picker>
+          </Animated.View>
         </View>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
+        {/* Account Section */}
+        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Account</Text>
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
+          <Row label="Email">
+            <TextInput
+              style={[styles.input, { color: colors.textPrimary, textAlign: "right" }]}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              placeholder="example@email.com"
+              placeholderTextColor={colors.textSecondary}
+            />
+          </Row>
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
+          <Row label="New Password">
+            <TextInput
+              style={[styles.input, { color: colors.textPrimary, textAlign: "right" }]}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              secureTextEntry
+              placeholder="••••••"
+              placeholderTextColor={colors.textSecondary}
+            />
+          </Row>
+        </View>
 
-        {/* Password field with lock + eye icon */}
-        <View style={styles.passwordContainer}>
-          <Ionicons name="lock-closed" size={20} color="#666" style={styles.passwordIcon} />
-          <TextInput
-            style={styles.passwordInput}
-            placeholder="New Password"
-            value={newPassword}
-            onChangeText={setNewPassword}
-            secureTextEntry={!showPassword}
-            autoCapitalize="none"
-          />
-          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-            <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color="#666" />
+        {/* Actions Section */}
+        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Actions</Text>
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
+          <TouchableOpacity style={styles.row} onPress={handleUpdate}>
+            <Text style={[styles.action, { color: colors.tint }]}>Update Settings</Text>
+          </TouchableOpacity>
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
+          <TouchableOpacity style={styles.row} onPress={handleSignOut}>
+            <Text style={[styles.action, { color: colors.tint }]}>Sign Out</Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.updateButton} onPress={handleUpdate}>
-          <Text style={styles.updateButtonText}>Save Settings</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-          <Text style={styles.signOutButtonText}>Sign Out</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
-          <Text style={styles.deleteButtonText}>Delete Account</Text>
-        </TouchableOpacity>
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
+          <TouchableOpacity style={styles.row} onPress={handleDeleteAccount}>
+            <Text style={[styles.action, { color: colors.destructive }]}>Delete Account</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+
+      {/* Password Modal */}
+      <Modal transparent visible={showPasswordModal} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.label, { color: colors.textPrimary }]}>
+              Enter your current password
+            </Text>
+            <TextInput
+              style={[styles.input, styles.modalInput, { color: colors.textPrimary }]}
+              secureTextEntry
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              placeholder="Current Password"
+              placeholderTextColor={colors.textSecondary}
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity onPress={() => setShowPasswordModal(false)}>
+                <Text style={{ color: colors.destructive }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleUpdate}>
+                <Text style={{ color: colors.tint }}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    ...components.container,
+  safe: { flex: 1 },
+  container: { flex: 1 },
+  Header: { paddingHorizontal: 16, paddingVertical: 8, fontSize: 20, fontWeight: "900" },
+  sectionHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    fontSize: 13,
+    fontWeight: "600",
+    textTransform: "uppercase",
   },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 50,
+  section: { marginBottom: 24, borderRadius: 12, overflow: "hidden" },
+  row: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  title: {
-    ...typography.h3,
-    marginBottom: spacing.xl,
-    textAlign: 'center',
+  label: { fontSize: 16 },
+  input: { fontSize: 16, paddingVertical: 0, paddingHorizontal: 0, minWidth: 0 },
+  action: { fontSize: 16, fontWeight: "600" },
+  divider: { height: StyleSheet.hairlineWidth, marginLeft: 16 },
+  datePickerWrapper: { alignItems: "center", justifyContent: "center", paddingVertical: 8 },
+  doneButton: { marginTop: 8, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 16 },
+  doneButtonText: { color: "#fff", fontWeight: "600", fontSize: 16 },
+  valueContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 4,
   },
-  input: {
-    ...components.input,
-    marginBottom: spacing.md,
-  },
-  passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.gray300,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.surface,
-    height: 50,
-    marginBottom: spacing.md,
-  },
-  passwordIcon: { marginRight: spacing.sm },
-  passwordInput: { 
-    flex: 1, 
-    fontSize: 16, 
-    paddingVertical: 0,
-    color: colors.textPrimary,
-  },
-  datePickerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: colors.gray300,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.surface,
-    marginBottom: spacing.md,
-  },
-  datePickerText: { 
-    fontSize: 16, 
-    color: colors.textPrimary,
-  },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: colors.gray300,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.md,
-    backgroundColor: colors.surface,
-    overflow: 'hidden',
-  },
-  picker: { height: 50, width: '100%' },
-  updateButton: {
-    ...components.buttonPrimary,
-    marginBottom: spacing.md,
-  },
-  signOutButton: {
-    ...components.buttonSecondary,
-    marginBottom: spacing.md,
-  },
-  deleteButton: {
-    ...components.buttonDanger,
-    marginBottom: spacing.md,
-  },
-  updateButtonText: {
-    ...typography.button,
-    textAlign: 'center',
-  },
-  signOutButtonText: {
-    ...typography.button,
-    color: colors.textPrimary,
-    textAlign: 'center',
-  },
-  deleteButtonText: {
-    ...typography.button,
-    textAlign: 'center',
-  },
-  loadingText: {
-    ...typography.body1,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
+  dropdownList: { overflow: "hidden", marginHorizontal: 16 },
+  dropdownItem: { paddingVertical: 12, paddingHorizontal: 16 },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
+  modalBox: { width: "80%", borderRadius: 12, padding: 20 },
+  modalInput: { borderBottomWidth: 1, borderBottomColor: "#ccc", marginVertical: 10 },
+  modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 16, marginTop: 12 },
 });

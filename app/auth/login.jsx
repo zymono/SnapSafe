@@ -11,11 +11,21 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator,
 } from 'react-native';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import {
+  signInWithEmailAndPassword,
+  sendEmailVerification,
+  signOut,
+} from 'firebase/auth';
 import { useRouter } from 'expo-router';
 import { auth } from '../../utils/firebase';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, components, spacing, borderRadius } from '../../styles/theme';
+import {
+  colors,
+  typography,
+  components,
+  spacing,
+  borderRadius,
+} from '../../styles/theme';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -24,7 +34,6 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  
 
   const validate = () => {
     const newErrors = {};
@@ -39,8 +48,40 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      Alert.alert('Success', `Welcome ${userCredential.user.email}`);
+      const { user } = await signInWithEmailAndPassword(auth, email, password);
+
+      // 🔄 Always refresh user data to get the latest verification status
+      await user.reload();
+
+      // 🚫 Prevent login if email not verified
+      if (!user.emailVerified) {
+        await signOut(auth); // Immediately sign them out
+        Alert.alert(
+          'Email Not Verified',
+          'You must verify your email before signing in.',
+          [
+            {
+              text: 'Resend Verification Email',
+              onPress: async () => {
+                try {
+                  await sendEmailVerification(user);
+                  Alert.alert(
+                    'Verification Sent 📩',
+                    `A verification link has been sent to ${user.email}. Please check your inbox.`
+                  );
+                } catch (err) {
+                  Alert.alert('Error', err.message);
+                }
+              },
+            },
+            { text: 'OK', style: 'cancel' },
+          ]
+        );
+        return;
+      }
+
+      // ✅ Verified users only
+      Alert.alert('Welcome 🎉', `Logged in as ${user.email}`);
       router.replace('/(tabs)');
     } catch (error) {
       Alert.alert('Login Failed', error.message);
@@ -70,7 +111,12 @@ export default function Login() {
         {errors.email && <Text style={styles.error}>{errors.email}</Text>}
 
         <View style={styles.passwordContainer}>
-          <Ionicons name="lock-closed" size={20} color={colors.textSecondary} style={styles.passwordIcon} />
+          <Ionicons
+            name="lock-closed"
+            size={20}
+            color={colors.textSecondary}
+            style={styles.passwordIcon}
+          />
           <TextInput
             style={styles.passwordInput}
             placeholder="Password"
@@ -81,7 +127,11 @@ export default function Login() {
             autoCapitalize="none"
           />
           <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-            <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color={colors.textSecondary} />
+            <Ionicons
+              name={showPassword ? 'eye-off' : 'eye'}
+              size={22}
+              color={colors.textSecondary}
+            />
           </TouchableOpacity>
         </View>
         {errors.password && <Text style={styles.error}>{errors.password}</Text>}
@@ -91,7 +141,18 @@ export default function Login() {
           onPress={handleLogin}
           disabled={loading}
         >
-          {loading ? <ActivityIndicator color={colors.textOnPrimary} /> : <Text style={styles.buttonText}>Login</Text>}
+          {loading ? (
+            <ActivityIndicator color={colors.textOnPrimary} />
+          ) : (
+            <Text style={styles.buttonText}>Login</Text>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={{ marginTop: spacing.lg }}
+          onPress={() => router.push('/auth/register')}
+        >
+          <Text style={styles.linkText}>Don’t have an account? Sign up</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -145,5 +206,10 @@ const styles = StyleSheet.create({
     color: colors.error,
     fontSize: 14,
     marginBottom: spacing.sm,
+  },
+  linkText: {
+    textAlign: 'center',
+    color: colors.primary,
+    fontWeight: '500',
   },
 });
