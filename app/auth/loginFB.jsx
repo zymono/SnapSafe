@@ -150,16 +150,9 @@ export default function Login() {
 
         <TouchableOpacity
           style={{ marginTop: spacing.lg }}
-          onPress={() => router.push('/auth/register')}
+          onPress={() => router.push('/auth/registerFB')}
         >
           <Text style={styles.linkText}>Don’t have an account? Sign up</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={{ marginTop: spacing.lg }}
-          onPress={() => router.push('/auth/zymono')}
-        >
-        <Text style={styles.linkText}>Sign In With Zymono (For Business Users)</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>

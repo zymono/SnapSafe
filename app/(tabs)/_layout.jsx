@@ -6,7 +6,7 @@ export default function TabsLayout() {
   const scheme = useColorScheme();
   const isDark = scheme === "dark";
 
-  // 🎨 Define colors and shadows directly here
+  // 🎨 Define colors and shadows directly here#0091FF
   const colors = {
     primary: "#007AFF",
     primaryLight: "#4DA3FF",

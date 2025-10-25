@@ -24,6 +24,8 @@ import {
   EmailAuthProvider,
   sendEmailVerification,
 } from "firebase/auth";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 import { doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -117,6 +119,7 @@ export default function Settings() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
+  const router = useRouter();
 
   const dropdownAnim = useRef(new Animated.Value(0)).current;
 
@@ -226,11 +229,34 @@ export default function Settings() {
 
   const handleSignOut = async () => {
     try {
-      await signOut(auth);
+      // Remove all relevant AsyncStorage keys in parallel
+      try {
+        await Promise.all([
+          AsyncStorage.removeItem("zymonoAuth_uid"),
+          AsyncStorage.removeItem("zymonoAuth_email"),
+          AsyncStorage.removeItem("zymonoAuth_displayName"),
+        ]);
+      } catch {
+        
+      }
+      
+
+      // Sign out from Firebase
+      try {
+        await signOut(auth);
+      } catch {
+
+        
+      }
+
+      // Alert.alert("Signed Out");
+
+      // console.log(await AsyncStorage.getItem("zymonoAuth_uid"))
     } catch (err) {
       Alert.alert("Sign Out Failed", err.message);
     }
   };
+
 
   // 🔥 Updated to also delete the Firestore document
   const handleDeleteAccount = async () => {
@@ -280,7 +306,7 @@ export default function Settings() {
       >
         {/* Header */}
         <Text style={[styles.Header, { color: colors.textPrimary }]}>Settings</Text>
-
+        
         {/* Profile Section */}
         <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Profile</Text>
         <View style={[styles.section, { backgroundColor: colors.surface }]}>

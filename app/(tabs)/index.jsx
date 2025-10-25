@@ -16,15 +16,18 @@ import {
   Modal,
   ActionSheetIOS,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as Location from "expo-location";
 import MapView, { Marker } from "react-native-maps";
 import * as Haptics from "expo-haptics";
 import { Picker } from "@react-native-picker/picker";
+import { useRouter } from "expo-router";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { auth, db } from "../../utils/firebase";
 import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { Ionicons } from "@expo/vector-icons";
 
 // --- THEME ---
 const palette = {
@@ -69,6 +72,87 @@ export default function ReportScreen() {
   const [locationData, setLocationData] = useState(null);
   const [mapVisible, setMapVisible] = useState(false);
   const floatAnim = useRef(new Animated.Value(0)).current;
+  const router = useRouter();
+
+  //Zymono Auth
+  const [zymonoAccount, setZymonoAccount] = useState(null);
+  const [activeAccount, setActiveAccount] = useState(null); // null until loaded
+  const [zymonoOrg, setZymonoOrg] = useState(null);
+
+  useEffect(() => {
+    const loadAccounts = async () => {
+      try {
+        // Load Zymono account
+        const uid = await AsyncStorage.getItem("zymonoAuth_uid");
+        const email = await AsyncStorage.getItem("zymonoAuth_email");
+        const displayName = email ? email.split("@")[0] : null;
+
+        if (uid && email) {
+          setZymonoAccount({ uid, email, displayName });
+        }
+
+        const res = await fetch("https://zymono.com/snapsafe/userinfo/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uid: uid }),
+        });
+        const data = await res.json();
+        console.log(data);
+
+        if (data?.photoURL) {
+          const adminTeam = String(data.photoURL).split(
+            "https://zymono.com/noimg/",
+          )[1];
+          // console.log(data.photoURL)
+          console.log(adminTeam);
+          const res1 = await fetch("https://zymono.com/api/key/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ uid: adminTeam }),
+          });
+          const data1 = await res1.json();
+          console.log(data1);
+
+          if (data1?.key) {
+            setZymonoOrg(data1.key);
+          }
+        }
+
+        // Load last active account
+        const savedActive = await AsyncStorage.getItem("activeAccount");
+
+        // Determine which account to use
+        let initialAccount = null;
+        if (savedActive === "zymono" && uid && email) initialAccount = "zymono";
+        else if (savedActive === "firebase") initialAccount = "firebase";
+        else if (uid && email)
+          initialAccount = "zymono"; // fallback to zymono
+        else initialAccount = "firebase"; // fallback to firebase
+
+        setActiveAccount(initialAccount);
+      } catch (err) {
+        console.error("Failed to load accounts", err);
+        setActiveAccount("firebase"); // default fallback
+      }
+    };
+
+    loadAccounts();
+  }, []);
+
+  // Persist active account whenever it changes
+  useEffect(() => {
+    if (activeAccount) {
+      AsyncStorage.setItem("activeAccount", activeAccount).catch((err) =>
+        console.error("Failed to save active account", err),
+      );
+    }
+  }, [activeAccount]);
+
+  useEffect(() => {
+    if (activeAccount === "zymono" && zymonoOrg) {
+      setOrganization(zymonoOrg);
+    }
+  }, [activeAccount, zymonoOrg]);
 
   // let orgApiKeys = {
   //   // "Org A": "Sp8n7jdDKIUuWJw7w0dRpGyQsENRUC7F",
@@ -85,16 +169,15 @@ export default function ReportScreen() {
         try {
           const docSnap = await getDoc(doc(db, "users", user.uid));
           if (docSnap.exists()) setProfile(docSnap.data());
-          
+
           const orgs = docSnap.data().orgs || [];
 
-          setOrgApiKeys(prev => ({
+          setOrgApiKeys((prev) => ({
             ...prev,
-            ...Object.fromEntries(orgs.map(org => [org.name, org.id]))
+            ...Object.fromEntries(orgs.map((org) => [org.name, org.id])),
           }));
 
           // console.log(orgApiKeys)
-
         } catch (e) {
           console.warn("Profile load error:", e);
         }
@@ -108,16 +191,21 @@ export default function ReportScreen() {
   useEffect(() => {
     const fetchDepartments = async () => {
       if (!organization) return;
-      const apiKey = orgApiKeys[organization];
+      let apiKey;
+
+      if (activeAccount === "firebase") {
+        apiKey = orgApiKeys[organization];
+        if (!apiKey) return;
+      } else if (activeAccount === "zymono") {
+        apiKey = zymonoOrg; // zymonoOrg key is already stored in `organization`
+      }
+
       try {
-        const res = await fetch(
-          "https://zymono.com/api/getDepartments",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ apiKey }),
-          }
-        );
+        const res = await fetch("https://zymono.com/api/getDepartments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ apiKey }),
+        });
         const data = await res.json();
         setDepartments(data.map((d) => d.name));
       } catch {
@@ -147,7 +235,7 @@ export default function ReportScreen() {
           compress: 0.5,
           format: ImageManipulator.SaveFormat.JPEG,
           base64: true,
-        }
+        },
       );
       return result;
     } catch (err) {
@@ -171,7 +259,7 @@ export default function ReportScreen() {
           } else if (buttonIndex === 1) {
             await pickImage();
           }
-        }
+        },
       );
     } else {
       Alert.alert(
@@ -182,7 +270,7 @@ export default function ReportScreen() {
           { text: "Choose from Library", onPress: pickImage },
           { text: "Cancel", style: "cancel" },
         ],
-        { cancelable: true }
+        { cancelable: true },
       );
     }
   };
@@ -253,7 +341,7 @@ export default function ReportScreen() {
       if (status !== "granted") {
         Alert.alert(
           "Permission Denied",
-          "Location access is required to choose on map."
+          "Location access is required to choose on map.",
         );
         return;
       }
@@ -276,47 +364,71 @@ export default function ReportScreen() {
       return Alert.alert("Missing Info", "Select organization and department.");
     }
     if (!locationData) {
-      return Alert.alert("Missing Location", "Please set a location before submitting.");
+      return Alert.alert(
+        "Missing Location",
+        "Please set a location before submitting.",
+      );
     }
 
     setSubmitting(true);
     try {
+      const currentUid =
+        activeAccount === "firebase"
+          ? auth.currentUser?.uid
+          : zymonoAccount?.uid;
+
+      const currentName =
+        activeAccount === "firebase"
+          ? profile?.fullName
+          : zymonoAccount?.displayName || zymonoAccount?.email;
+
+      const currentEmail =
+        activeAccount === "firebase" ? profile?.email : zymonoAccount?.email;
+
+      let apiKey;
+
+      if (activeAccount === "firebase") {
+        apiKey = orgApiKeys[organization];
+        if (!apiKey) return;
+      } else if (activeAccount === "zymono") {
+        apiKey = organization; // zymonoOrg key is already stored in `organization`
+      }
+
       const payload = {
-        apiKey: orgApiKeys[organization],
+        apiKey: apiKey, //orgApiKeys[organization],
         depId: department,
         reason,
         urgency,
         anonymous,
-        imgURL: imageBase64 || "",
-        user: anonymous ? null : (profile?.fullName || "Anonymous"),
+        imgURL: imageBase64 ? `data:image/jpeg;base64,${imageBase64}` : "",
+        user: anonymous ? null : currentName,
         device: "SnapSafe",
-        identifier: auth.currentUser?.uid || "SnapSafe Error",
+        identifier: currentUid || "SnapSafe Error",
         locationData,
         contactInfo: anonymous
           ? null
           : {
-              name: profile?.fullName || "Unknown",
-              email: profile?.email,
+              name: currentName,
+              email: currentEmail,
             },
       };
 
-      const res = await fetch(
-        "https://zymono.com/api/report",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
+      const res = await fetch("https://zymono.com/api/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
       if (!res.ok) throw new Error("Submission failed");
       // await res.json();
       const reportData = await res.json();
 
-      console.log(reportData)
+      console.log(reportData);
 
-      const userRef = doc(db, 'users', auth.currentUser?.uid);
-      await updateDoc(userRef, { myreports: arrayUnion(`${orgApiKeys[organization]}\\${reportData.id}`) });
+      const userRef = doc(db, "users", auth.currentUser?.uid);
+      await updateDoc(userRef, {
+        myreports: arrayUnion(`${orgApiKeys[organization]}\\${reportData.id}`),
+      });
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert("Success", "Report submitted successfully!");
@@ -342,7 +454,7 @@ export default function ReportScreen() {
         { options: [...options, "Cancel"], cancelButtonIndex: options.length },
         (idx) => {
           if (idx < options.length) onSelect(options[idx]);
-        }
+        },
       );
     }
   };
@@ -366,12 +478,101 @@ export default function ReportScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ padding: 20, paddingBottom: 180 }}
       >
-        <Text style={[styles.welcome, { color: theme.textMuted }]}>
-          Welcome, {profile?.fullName}
-        </Text>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 10,
+          }}
+        >
+          <Text style={[styles.welcome, { color: theme.textMuted }]}>
+            Welcome,{" "}
+            {activeAccount === "firebase"
+              ? profile?.fullName
+              : zymonoAccount?.displayName || zymonoAccount?.email || "Guest"}
+          </Text>
+
+          {(profile || zymonoAccount) &&
+            (Platform.OS === "ios" ? (
+              <TouchableOpacity
+                onPress={() => {
+                  const options = [];
+                  const handlers = [];
+
+                  if (profile) {
+                    options.push(profile.fullName);
+                    handlers.push(() => setActiveAccount("firebase"));
+                  } else {
+                    options.push("Add Personal Account");
+                    handlers.push(() => {
+                      // Trigger Firebase login flow
+                      router.push("/auth/loginFB");
+                    });
+                  }
+
+                  if (zymonoAccount) {
+                    options.push(zymonoAccount.email);
+                    handlers.push(() => setActiveAccount("zymono"));
+                  } else {
+                    options.push("Add Zymono Account");
+                    handlers.push(() => {
+                      // Trigger Zymono login flow
+                      router.push("/auth/zymono?allow=true");
+                    });
+                  }
+
+                  options.push("Cancel");
+                  ActionSheetIOS.showActionSheetWithOptions(
+                    { options, cancelButtonIndex: options.length - 1 },
+                    (idx) => {
+                      if (idx < handlers.length) handlers[idx]();
+                    },
+                  );
+                }}
+                style={{
+                  paddingRight: 10,
+                  paddingVertical: 6,
+                  // borderRadius: 8,
+                }}
+              >
+                <Ionicons
+                  style={[styles.welcome, { color: theme.textMuted }]}
+                  name="people-sharp"
+                  size="24"
+                  color="black"
+                />
+              </TouchableOpacity>
+            ) : (
+              <Picker
+                selectedValue={activeAccount}
+                style={{ width: 200, height: 40 }}
+                onValueChange={(value) => {
+                  setActiveAccount(value); // always update state first
+
+                  if (value === "firebase" && !profile) {
+                    setTimeout(() => router.push("/auth/loginFB?allow=true"), 50);
+                  } else if (value === "zymono" && !zymonoAccount) {
+                    setTimeout(() => router.push("/auth/zymono?allow=true"), 50);
+                  }
+                }}
+              >
+                {profile ? (
+                  <Picker.Item label={profile.fullName} value="firebase" />
+                ) : (
+                  <Picker.Item label="Add Firebase Account" value="firebase" />
+                )}
+                {zymonoAccount ? (
+                  <Picker.Item label={zymonoAccount.email} value="zymono" />
+                ) : (
+                  <Picker.Item label="Add Zymono Account" value="zymono" />
+                )}
+              </Picker>
+            ))}
+        </View>
 
         {/* Organization Picker */}
-        <Text style={[styles.label, { color: theme.textMuted }]}>
+        {/* <Text style={[styles.label, { color: theme.textMuted }]}>
           Organization
         </Text>
         {Platform.OS === "ios" ? (
@@ -409,6 +610,50 @@ export default function ReportScreen() {
               ))}
             </Picker>
           </View>
+        )}
+ */}
+        {activeAccount === "firebase" && (
+          <>
+            <Text style={[styles.label, { color: theme.textMuted }]}>
+              Organization
+            </Text>
+            {Platform.OS === "ios" ? (
+              <TouchableOpacity
+                onPress={() =>
+                  showIOSPicker(Object.keys(orgApiKeys), (val) =>
+                    setOrganization(val),
+                  )
+                }
+                style={[
+                  styles.inputBox,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
+              >
+                <Text
+                  style={{ color: organization ? theme.text : theme.textMuted }}
+                >
+                  {organization || "Select organization"}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <View
+                style={[
+                  styles.pickerBox,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
+              >
+                <Picker
+                  selectedValue={organization}
+                  onValueChange={(val) => setOrganization(val)}
+                >
+                  <Picker.Item label="Select organization" value={null} />
+                  {Object.keys(orgApiKeys).map((org) => (
+                    <Picker.Item label={org} value={org} key={org} />
+                  ))}
+                </Picker>
+              </View>
+            )}
+          </>
         )}
 
         {/* Department Picker */}
@@ -495,7 +740,7 @@ export default function ReportScreen() {
           {imageUri ? (
             <Image source={{ uri: imageUri }} style={styles.image} />
           ) : (
-            <Text style={{ color: theme.textMuted }}>📷 Tap to add image</Text>
+            <Text style={{ color: theme.textMuted }}>Tap to add image</Text>
           )}
         </TouchableOpacity>
 
@@ -513,6 +758,9 @@ export default function ReportScreen() {
           placeholderTextColor={theme.textMuted}
           multiline
           value={reason}
+          autoCorrect={true}          // ✅ Enables autocorrect
+          spellCheck={true}           // ✅ Enables spell checking
+          autoCapitalize="sentences"
           onChangeText={setReason}
         />
 
@@ -538,8 +786,7 @@ export default function ReportScreen() {
           >
             <Text
               style={{
-                color:
-                  locationData?.source === "current" ? "#fff" : theme.text,
+                color: locationData?.source === "current" ? "#fff" : theme.text,
                 fontWeight: "600",
               }}
             >
@@ -552,9 +799,7 @@ export default function ReportScreen() {
               styles.locButton,
               {
                 backgroundColor:
-                  locationData?.source === "map"
-                    ? theme.accent
-                    : theme.surface,
+                  locationData?.source === "map" ? theme.accent : theme.surface,
                 borderColor:
                   locationData?.source === "map" ? theme.accent : theme.border,
                 borderWidth: 1,
